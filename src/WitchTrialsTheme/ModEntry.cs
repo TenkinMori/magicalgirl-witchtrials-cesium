@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
@@ -46,6 +46,7 @@ namespace WitchTrialsTheme
         }
 
         // 尺寸与 plan.json 的 homepanel[].to 完全一致：美术显示尺寸 == 按钮尺寸。
+        // X / Y 是 1920x1080 设计坐标；实际落点由 PanelMetrics 按面板实际尺寸换算。
         private static readonly Slot[] Slots =
         {
             new Slot { Child = "btn_GameOnline", Art = "loadgame", X = 18f,  Y = 702f, W = 378f, H = 232f, ArtX = -10f, ArtY = 3f   },
@@ -58,6 +59,58 @@ namespace WitchTrialsTheme
         /// <summary>右上角 LOGO：把 btn_PlayerGuide 拉大换图（点击仍是官方「装扮」）。</summary>
         private const string LogoChild = "btn_PlayerGuide";
         private const float LogoX = 1340f, LogoY = 24f, LogoW = 556f, LogoH = 326f;
+
+        /// <summary>设计分辨率（FairyGUI 逻辑坐标，16:9）。</summary>
+        private const float DesignWidth = 1920f, DesignHeight = 1080f;
+
+        /// <summary>LOGO 到面板右边缘的设计间距 = 1920 - (1340 + 556)。</summary>
+        private const float LogoRight = DesignWidth - (LogoX + LogoW);
+
+        /// <summary>
+        /// 面板实际尺寸相对设计的偏移量。
+        ///
+        /// 游戏（UI.BasePanel.FullScreen）把主页面板设成
+        ///   SetSize(ceil(Screen.safeArea.width / GRoot.contentScaleFactor), GRoot.inst.height)
+        /// 而 GRoot 的缩放取 min(Stage.w/1920, Stage.h/1080)，所以：
+        ///   · 16:9 → 面板正好 1920×1080
+        ///   · 更宽的屏幕 → 面板比 1920 宽、高度仍是 1080
+        ///   · 更高的屏幕（平板竖横比小于 16:9）→ 面板宽度仍是 1920，高度大于 1080
+        /// 设计坐标是以左上角为原点的，面板变高时底部按钮不会跟着下移，于是"看起来整体靠上"。
+        /// 因此底部按钮按下沿对齐（Y += Dy），右上 LOGO 按右沿对齐（X += Dx）。
+        /// </summary>
+        private struct PanelMetrics
+        {
+            public float Dx, Dy;
+
+            public static PanelMetrics From(GComponent panel)
+            {
+                float w = DesignWidth, h = DesignHeight;
+                if (panel != null)
+                {
+                    if (panel.width > 1f) w = panel.width;
+                    if (panel.height > 1f) h = panel.height;
+                }
+
+                PanelMetrics m;
+                m.Dx = w - DesignWidth;
+                m.Dy = h - DesignHeight;
+                // 面板尺寸不会小于设计尺寸（GRoot 缩放取 min，故宽高至少一项等于设计值）；
+                // 万一取到 0 或尚未布局，就退回 1920x1080 的原始落点。
+                if (m.Dx < 0f) m.Dx = 0f;
+                if (m.Dy < 0f) m.Dy = 0f;
+                return m;
+            }
+
+            public Vector2 ButtonPos(Slot slot)
+            {
+                return new Vector2(slot.X, slot.Y + Dy);
+            }
+
+            public Vector2 LogoPos()
+            {
+                return new Vector2(LogoX + Dx, LogoY);
+            }
+        }
 
         private static readonly string[] HiddenChildren =
         {
@@ -79,9 +132,10 @@ namespace WitchTrialsTheme
         private double _nextWarn;
         private string _lastWarn;
         private bool _loggedApply;
+        private string _lastMetrics;
 
         public override string Name { get { return "魔裁主题首页"; } }
-        public override string Version { get { return "1.0.0"; } }
+        public override string Version { get { return "1.0.1"; } }
         public override string Author { get { return "TenkinMori"; } }
         public override string Description
         {
@@ -173,6 +227,15 @@ namespace WitchTrialsTheme
                 if (_logoTexture == null) return;
             }
 
+            PanelMetrics m = PanelMetrics.From(ui);
+            string metrics = m.Dx.ToString("F0") + "x" + m.Dy.ToString("F0");
+            if (metrics != _lastMetrics)
+            {
+                _lastMetrics = metrics;
+                Log.Info("面板 " + ui.width.ToString("F0") + "x" + ui.height.ToString("F0")
+                         + "，底部偏移 Dy=" + m.Dy.ToString("F0") + "，右侧偏移 Dx=" + m.Dx.ToString("F0"));
+            }
+
             PatchCutIn(ui);
 
             // 模组初始化时主页大多已经播完 Cut in；只有从别的场景回主页才会重播。
@@ -199,14 +262,16 @@ namespace WitchTrialsTheme
             Transition cutIn = ui.Cut_in;
             if (cutIn == null) return;
 
+            PanelMetrics m = PanelMetrics.From(ui);
+
             Dictionary<string, Vector2> want = new Dictionary<string, Vector2>();
             for (int i = 0; i < Slots.Length; i++)
             {
                 GObject obj = ui.GetChild(Slots[i].Child);
-                if (obj != null && !string.IsNullOrEmpty(obj.id)) want[obj.id] = new Vector2(Slots[i].X, Slots[i].Y);
+                if (obj != null && !string.IsNullOrEmpty(obj.id)) want[obj.id] = m.ButtonPos(Slots[i]);
             }
             GObject logo = ui.GetChild(LogoChild);
-            if (logo != null && !string.IsNullOrEmpty(logo.id)) want[logo.id] = new Vector2(LogoX, LogoY);
+            if (logo != null && !string.IsNullOrEmpty(logo.id)) want[logo.id] = m.LogoPos();
 
             Array items = GetTransitionItems(cutIn);
             if (items != null && want.Count > 0)
@@ -251,13 +316,16 @@ namespace WitchTrialsTheme
 
         private void SkinButtons(UIHomePanel ui)
         {
+            PanelMetrics m = PanelMetrics.From(ui);
+
             for (int i = 0; i < Slots.Length; i++)
             {
                 Slot slot = Slots[i];
                 GButton button = ui.GetChild(slot.Child) as GButton;
                 if (button == null) continue;
 
-                button.SetPosition(slot.X, slot.Y, 0f);
+                Vector2 pos = m.ButtonPos(slot);
+                button.SetPosition(pos.x, pos.y, 0f);
                 button.SetSize(slot.W, slot.H);
 
                 ButtonSkin skin = GetOrCreateSkin(slot, button);
@@ -283,7 +351,8 @@ namespace WitchTrialsTheme
             GButton logo = ui.GetChild(LogoChild) as GButton;
             if (logo != null)
             {
-                logo.SetPosition(LogoX, LogoY, 0f);
+                Vector2 pos = m.LogoPos();
+                logo.SetPosition(pos.x, pos.y, 0f);
                 logo.SetSize(LogoW, LogoH);
 
                 ButtonSkin skin = GetLogoSkin(logo);

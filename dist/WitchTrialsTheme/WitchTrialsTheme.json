@@ -1,7 +1,7 @@
-{
+﻿{
   "id": "WitchTrialsTheme",
   "name": "魔裁主题首页",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": "TenkinMori",
   "description": "把主页版式换成《魔法少女的魔女审判》主题：右上是 LOGO，底部五枚两态菜单（Load Game / New Game / Gallery / Options / Exit）。背景请配合 HomeBackgroundMod。",
   "permissions": 401,

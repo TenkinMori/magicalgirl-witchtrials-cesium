@@ -22,6 +22,11 @@
 - 每个按钮都有常态（`al_*_dark.png`）与按下态（`al_*_pink.png`）两张图，按下时切图，**关掉了官方内置的变暗 / 缩放动效**。
 - 隐藏：`com_Banner`、`com_Activity`、`com_expand`、`com_ActivityBanner`、`com_BattlePass`、`Com_Tip`、`Btn_BGSet`、`Btn_Hide`、四个抖音按钮。
 - 背景不在这里做 —— 请同时装 [HomeBackgroundMod](https://github.com/TenkinMori/astralparty-homebg-cesium)（本模组只叠在背景之上，不抢 `Com_BGSet.loader_Video`）。
+- **自适应屏幕比例**：上表是 1920×1080 设计坐标。游戏把主页面板设成
+  `SetSize(ceil(Screen.safeArea.width / contentScaleFactor), GRoot.height)`，而缩放系数取
+  `min(Stage.w / 1920, Stage.h / 1080)`，所以非 16:9 屏幕上面板会变宽或变高。
+  模组每次重放都会读面板实际尺寸：底部按钮按下沿对齐（`Y += 面板高 − 1080`），
+  LOGO 按右沿对齐（`X += 面板宽 − 1920`），因此在平板 / 超宽屏上位置不会跑偏。
 
 ## 安装
 
@@ -77,6 +82,8 @@
   末尾 `AddChild(new GLoader{ fill = FillType.ScaleFree, touchable = false })` 叠我们自己的图。
   命中测试不看 alpha，原按钮 `touchable` 保持 true，所以点击逻辑完全照旧。
 - **LOGO**：`btn_PlayerGuide` 从右下角 150×150 拉成右上 556×326，并压掉官方立绘。
+- **自适应**：`PanelMetrics.From(ui)` 读面板实际 `width/height`，算出 `Dx = w − 1920`、`Dy = h − 1080`；
+  五个菜单按钮落 `(X, Y + Dy)`、LOGO 落 `(LogoX + Dx, LogoY)`，尺寸不变。
 - **Cut in 转场**：`Transition._items[].tweenConfig.endValue`（`TValue.f1/f2`）用反射改成我们的落点 ——
   这个包的 transition item 没有 label，`SetValue` / `SetHook` 都不可用。
 - **按下态**：`GButton._downEffect`（private）反射置 0，避免官方把我们的图压暗；
