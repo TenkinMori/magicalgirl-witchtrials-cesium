@@ -21,7 +21,7 @@
 
 - 每个按钮都有常态（`al_*_dark.png`）与按下态（`al_*_pink.png`）两张图，按下时切图，**关掉了官方内置的变暗 / 缩放动效**。
 - 隐藏：`com_Banner`、`com_Activity`、`com_expand`、`com_ActivityBanner`、`com_BattlePass`、`Com_Tip`、`Btn_BGSet`、`Btn_Hide`、四个抖音按钮。
-- 背景不在这里做 —— 请同时装 [HomeBackgroundMod](https://github.com/)（本模组只叠在背景之上，不抢 `Com_BGSet.loader_Video`）。
+- 背景不在这里做 —— 请同时装 [HomeBackgroundMod](https://github.com/TenkinMori/astralparty-homebg-cesium)（本模组只叠在背景之上，不抢 `Com_BGSet.loader_Video`）。
 
 ## 安装
 
